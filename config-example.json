@@ -1,0 +1,12 @@
+{
+    "sitemapUrl": "https://example.com/sitemap.xml",
+    "startUrl": "https://example.com",
+    "maxPages": 500,
+    "domainFilter": [
+        "example.com"
+    ],
+    "outputFile": "rapport-maillage.json",
+    "concurrentRequests": 5,
+    "requestDelay": 200,
+    "verbose": true
+}
