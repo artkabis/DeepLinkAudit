@@ -190,6 +190,193 @@ LinkJuice.ChartRenderers = (function() {
 
         return chart;
     }
+   /**
+ * Crée ou met à jour un graphique de distribution du PageRank
+ * @param {string} canvasId - ID de l'élément canvas
+ * @param {Array} pages - Pages avec données PageRank
+ * @return {Object} Instance du graphique Chart.js
+ */
+function createPageRankChart(canvasId, pages) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+
+    // Nettoyer le graphique existant s'il existe
+    if (chartCache[canvasId]) {
+        chartCache[canvasId].destroy();
+    }
+
+    // Filtrer les pages avec PageRank défini
+    const pagesWithRank = pages.filter(page => typeof page.pageRank !== 'undefined');
+    
+    if (pagesWithRank.length === 0) {
+        const container = document.getElementById(canvasId).parentNode;
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 20px; height: 200px; display: flex; align-items: center; justify-content: center;">
+                    <p>Aucune donnée PageRank disponible</p>
+                </div>
+            `;
+        }
+        return null;
+    }
+    
+    // Trier par PageRank décroissant et prendre les 10 premiers
+    const topRanked = pagesWithRank
+        .sort((a, b) => b.pageRank - a.pageRank)
+        .slice(0, 10);
+    
+    // Extraire les URLs et les scores
+    const urls = topRanked.map(page => truncateUrl(page.url));
+    const scores = topRanked.map(page => page.pageRank);
+
+    // Créer le graphique
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: urls,
+            datasets: [{
+                label: 'Score PageRank',
+                data: scores,
+                backgroundColor: 'rgba(66, 133, 244, 0.7)',
+                borderColor: 'rgba(66, 133, 244, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            const index = tooltipItems[0].dataIndex;
+                            return topRanked[index].url;
+                        },
+                        label: function(context) {
+                            return `PageRank: ${context.raw.toFixed(3)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Score PageRank'
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+
+    // Stocker le graphique dans le cache
+    chartCache[canvasId] = chart;
+
+    return chart;
+}
+
+/**
+ * Crée ou met à jour un graphique de distribution du JuiceLinkScore
+ * @param {string} canvasId - ID de l'élément canvas
+ * @param {Array} pages - Pages avec données JuiceLinkScore
+ * @return {Object} Instance du graphique Chart.js
+ */
+function createJuiceLinkScoreChart(canvasId, pages) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+
+    // Nettoyer le graphique existant s'il existe
+    if (chartCache[canvasId]) {
+        chartCache[canvasId].destroy();
+    }
+
+    // Filtrer les pages avec JuiceLinkScore défini
+    const pagesWithJuice = pages.filter(page => typeof page.juiceLinkScore !== 'undefined');
+    
+    if (pagesWithJuice.length === 0) {
+        const container = document.getElementById(canvasId).parentNode;
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 20px; height: 200px; display: flex; align-items: center; justify-content: center;">
+                    <p>Aucune donnée JuiceLink disponible</p>
+                </div>
+            `;
+        }
+        return null;
+    }
+    
+    // Trier par JuiceLinkScore décroissant et prendre les 10 premiers
+    const topJuiced = pagesWithJuice
+        .sort((a, b) => b.juiceLinkScore - a.juiceLinkScore)
+        .slice(0, 10);
+    
+    // Extraire les URLs et les scores
+    const urls = topJuiced.map(page => truncateUrl(page.url));
+    const scores = topJuiced.map(page => page.juiceLinkScore);
+
+    // Créer le graphique
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: urls,
+            datasets: [{
+                label: 'JuiceLink Score',
+                data: scores,
+                backgroundColor: 'rgba(52, 168, 83, 0.7)',
+                borderColor: 'rgba(52, 168, 83, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            const index = tooltipItems[0].dataIndex;
+                            return topJuiced[index].url;
+                        },
+                        label: function(context) {
+                            return `JuiceLink: ${context.raw.toFixed(1)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'JuiceLink Score'
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+
+    // Stocker le graphique dans le cache
+    chartCache[canvasId] = chart;
+
+    return chart;
+}
 
     /**
      * Crée ou met à jour un graphique de qualité des ancres
@@ -569,6 +756,8 @@ LinkJuice.ChartRenderers = (function() {
         createImportanceDistributionChart: createImportanceDistributionChart,
         createInTextDistributionChart: createInTextDistributionChart,
         createContextCategoryChart: createContextCategoryChart,
+        createPageRankChart: createPageRankChart,
+        createJuiceLinkScoreChart: createJuiceLinkScoreChart,
         clearChartCache: clearChartCache
     };
 })();

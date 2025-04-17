@@ -72,6 +72,7 @@ LinkJuice.TableRenderers = (function() {
 
         return table;
     }
+    
 
     /**
      * Remplit un tableau des pages orphelines
@@ -111,6 +112,161 @@ LinkJuice.TableRenderers = (function() {
         // Initialiser DataTable
         initDataTable(tableId);
     }
+/**
+ * Remplit un tableau des pages avec les meilleurs scores PageRank et JuiceLink
+ * @param {string} tableId - ID de l'élément table
+ * @param {Array} pages - Pages à afficher
+ */
+function populateTopScoredTable(tableId, pages) {
+    console.log(`populateTopScoredTable: Initialisation pour ${tableId} avec ${pages ? pages.length : 0} pages`);
+    
+    // Vérifier que tbody existe
+    const tbody = document.getElementById(`${tableId}-tbody`);
+    if (!tbody) {
+        console.error(`populateTopScoredTable: Élément tbody non trouvé pour ${tableId}-tbody`);
+        return;
+    }
+    
+    // Vider le contenu existant
+    tbody.innerHTML = '';
+    
+    // Vérifier que nous avons des pages à traiter
+    if (!pages || !Array.isArray(pages) || pages.length === 0) {
+        console.warn("populateTopScoredTable: Aucune page disponible");
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucune donnée de score disponible</td></tr>';
+        return;
+    }
+    
+    // Filtrer les pages qui ont au moins un des scores
+    const pagesWithScores = pages.filter(page => 
+        typeof page.pageRank !== 'undefined' || typeof page.juiceLinkScore !== 'undefined'
+    );
+    
+    console.log(`populateTopScoredTable: ${pagesWithScores.length} pages ont des scores`);
+    
+    if (!pagesWithScores || pagesWithScores.length === 0) {
+        console.warn("populateTopScoredTable: Aucune page avec scores disponible");
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucune donnée de score disponible</td></tr>';
+        return;
+    }
+    
+    try {
+        // Calculer un score combiné pour le tri
+        pagesWithScores.forEach(page => {
+            let scoreSum = 0;
+            let scoreCount = 0;
+            
+            if (typeof page.pageRank !== 'undefined') {
+                // Le PageRank est généralement entre 0 et 1
+                scoreSum += page.pageRank;
+                scoreCount++;
+            }
+            
+            if (typeof page.juiceLinkScore !== 'undefined') {
+                // Le JuiceLink Score est généralement sur une échelle différente (par ex. 1-10)
+                // Normaliser pour le calcul du score combiné
+                scoreSum += (page.juiceLinkScore / 10); // Supposons une échelle 0-10 pour JuiceLink
+                scoreCount++;
+            }
+            
+            page.combinedScore = scoreCount > 0 ? scoreSum / scoreCount : 0;
+        });
+        
+        // Trier par score combiné et prendre les 20 premiers
+        const topScored = pagesWithScores
+            .sort((a, b) => b.combinedScore - a.combinedScore)
+            .slice(0, 20);
+        
+        console.log(`populateTopScoredTable: Affichage de ${topScored.length} pages triées`);
+        
+        if (topScored.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucune page avec score disponible pour l\'affichage</td></tr>';
+            return;
+        }
+        
+        // Créer les lignes du tableau
+        topScored.forEach((page, index) => {
+            try {
+                const row = document.createElement('tr');
+                
+                // Cellule du rang
+                const rankCell = document.createElement('td');
+                rankCell.textContent = index + 1;
+                row.appendChild(rankCell);
+                
+                // Cellule de l'URL
+                const urlCell = document.createElement('td');
+                const urlLink = document.createElement('a');
+                urlLink.href = page.url;
+                urlLink.target = '_blank';
+                
+                // S'assurer que truncateUrl existe, sinon utiliser l'URL complète
+                try {
+                    urlLink.textContent = typeof truncateUrl === 'function' ? 
+                        truncateUrl(page.url) : page.url;
+                } catch (error) {
+                    console.warn("populateTopScoredTable: Fonction truncateUrl non disponible", error);
+                    urlLink.textContent = page.url;
+                }
+                
+                urlLink.title = page.url; // Tooltip avec l'URL complète
+                urlCell.appendChild(urlLink);
+                row.appendChild(urlCell);
+                
+                // Cellule du PageRank
+                const pageRankCell = document.createElement('td');
+                pageRankCell.textContent = typeof page.pageRank !== 'undefined' ? 
+                    page.pageRank.toFixed(3) : 'N/A';
+                row.appendChild(pageRankCell);
+                
+                // Cellule du JuiceLink Score
+                const juiceLinkCell = document.createElement('td');
+                juiceLinkCell.textContent = typeof page.juiceLinkScore !== 'undefined' ? 
+                    page.juiceLinkScore.toFixed(2) : 'N/A';
+                row.appendChild(juiceLinkCell);
+                
+                // Cellule des liens entrants
+                const inboundCell = document.createElement('td');
+                inboundCell.textContent = page.incomingLinks || 0;
+                row.appendChild(inboundCell);
+                
+                // Cellule des liens sortants
+                const outboundCell = document.createElement('td');
+                outboundCell.textContent = page.outgoingLinks || 0;
+                row.appendChild(outboundCell);
+                
+                // Ajouter la ligne au tableau
+                tbody.appendChild(row);
+            } catch (rowError) {
+                console.error(`populateTopScoredTable: Erreur lors de la création de la ligne ${index}:`, rowError);
+            }
+        });
+        
+        // Initialiser DataTable si la fonction est disponible
+        if (typeof initDataTable === 'function') {
+            try {
+                console.log(`populateTopScoredTable: Initialisation de DataTable pour ${tableId}`);
+                initDataTable(tableId);
+            } catch (dataTableError) {
+                console.error("populateTopScoredTable: Erreur lors de l'initialisation de DataTable:", dataTableError);
+            }
+        } else {
+            console.warn("populateTopScoredTable: Fonction initDataTable non disponible");
+        }
+        
+        console.log(`populateTopScoredTable: Tableau ${tableId} rempli avec succès`);
+    } catch (error) {
+        console.error("populateTopScoredTable: Erreur globale:", error);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; color: #e53935;">
+                    Une erreur s'est produite lors du chargement des données. 
+                    Veuillez actualiser la page ou contacter le support.
+                </td>
+            </tr>
+        `;
+    }
+}
 
     /**
      * Remplit un tableau de contextes de liens
@@ -390,48 +546,78 @@ LinkJuice.TableRenderers = (function() {
     }
 
     /**
-     * Remplit un tableau des pages avec le plus de liens inText
-     * @param {string} tableId - ID de l'élément table
-     * @param {Array} topInTextPages - Pages avec le plus de liens inText
-     */
-    function populateTopInTextTable(tableId, topInTextPages) {
-        const tbody = document.getElementById(`${tableId}-tbody`);
-        if (!tbody) return;
-        
-        tbody.innerHTML = '';
-
-        if (!topInTextPages || topInTextPages.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Aucune donnée disponible</td></tr>';
-            return;
-        }
-
-        topInTextPages.forEach((page, index) => {
-            const row = document.createElement('tr');
-
-            const rankCell = document.createElement('td');
-            rankCell.textContent = index + 1;
-
-            const urlCell = document.createElement('td');
-            const urlLink = document.createElement('a');
-            urlLink.href = page.url;
-            urlLink.target = '_blank';
-            urlLink.textContent = truncateUrl(page.url);
-            urlLink.title = page.url;
-            urlCell.appendChild(urlLink);
-
-            const countCell = document.createElement('td');
-            countCell.textContent = page.count;
-
-            row.appendChild(rankCell);
-            row.appendChild(urlCell);
-            row.appendChild(countCell);
-
-            tbody.appendChild(row);
-        });
-
-        // Initialiser DataTable
-        initDataTable(tableId);
+ * Remplit un tableau des pages avec le plus de liens inText
+ * @param {string} tableId - ID de l'élément table
+ * @param {Array} topInTextPages - Pages avec le plus de liens inText
+ */
+function populateTopInTextTable(tableId, topInTextPages) {
+    console.log(`populateTopInTextTable: Initialisation pour ${tableId} avec ${topInTextPages ? topInTextPages.length : 0} pages`);
+    
+    // Vérifier différentes possibilités pour l'ID du tbody
+    let tbodyId = `${tableId}-tbody`;
+    let tbody = document.getElementById(tbodyId);
+    
+    // Si non trouvé avec le premier format, essayer les alternatives
+    if (!tbody) {
+      tbodyId = `${tableId.replace('-table', '')}-tbody`;
+      tbody = document.getElementById(tbodyId);
     }
+    
+    // Si toujours pas trouvé, chercher directement dans la table
+    if (!tbody) {
+      const table = document.getElementById(tableId);
+      if (table) {
+        tbody = table.querySelector('tbody');
+      }
+    }
+    
+    // Si aucun tbody n'est trouvé, abandonner
+    if (!tbody) {
+      console.error(`populateTopInTextTable: Élément tbody non trouvé pour le tableau ${tableId}`);
+      return;
+    }
+    
+    // Vider le contenu existant
+    tbody.innerHTML = '';
+    
+    // Vérifier que nous avons des données
+    if (!topInTextPages || !Array.isArray(topInTextPages) || topInTextPages.length === 0) {
+      console.warn(`populateTopInTextTable: Aucune page inText disponible`);
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Aucune page avec liens inText trouvée</td></tr>';
+      return;
+    }
+    
+    console.log(`populateTopInTextTable: Affichage de ${topInTextPages.length} pages avec liens inText`);
+    
+    // Remplir le tableau
+    topInTextPages.forEach((page, index) => {
+      const row = document.createElement('tr');
+      
+      // Cellule de rang
+      const rankCell = document.createElement('td');
+      rankCell.textContent = index + 1;
+      row.appendChild(rankCell);
+      
+      // Cellule d'URL
+      const urlCell = document.createElement('td');
+      const urlLink = document.createElement('a');
+      urlLink.href = page.url;
+      urlLink.target = '_blank';
+      urlLink.textContent = page.url;
+      urlCell.appendChild(urlLink);
+      row.appendChild(urlCell);
+      
+      // Cellule de nombre de liens
+      const countCell = document.createElement('td');
+      countCell.textContent = page.count;
+      row.appendChild(countCell);
+      
+      // Ajouter la ligne au tableau
+      tbody.appendChild(row);
+    });
+    
+    console.log(`populateTopInTextTable: Tableau ${tableId} rempli avec succès`);
+  }
 
     /**
      * Nettoie tous les tableaux en cache
@@ -456,6 +642,7 @@ LinkJuice.TableRenderers = (function() {
         populateAllPagesTable: populateAllPagesTable,
         populateImportanceTables: populateImportanceTables,
         populateTopInTextTable: populateTopInTextTable,
+        populateTopScoredTable: populateTopScoredTable,
         clearTableCache: clearTableCache
     };
 })();

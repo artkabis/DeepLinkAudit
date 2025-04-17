@@ -820,6 +820,62 @@
           </div>
         </div>
       </div>
+    <!-- Section pour l'analyse des scores PageRank et JuiceLink -->
+<div class="card">
+  <h2 class="card-title">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+      <polyline points="17 6 23 6 23 12"></polyline>
+    </svg>
+    Analyse des scores de liens
+  </h2>
+  <div class="tabs">
+    <button class="tab active" data-target="pagerank-section">
+      PageRank
+    </button>
+    <button class="tab" data-target="juicelink-section">
+      JuiceLink Score
+    </button>
+    <button class="tab" data-target="top-scored-pages">
+      Top pages par score
+    </button>
+  </div>
+  <div id="pagerank-section" class="tab-content active">
+    <div class="chart-container">
+      <canvas id="pagerank-chart"></canvas>
+    </div>
+  </div>
+  <div id="juicelink-section" class="tab-content">
+    <div class="chart-container">
+      <canvas id="juicelink-chart"></canvas>
+    </div>
+  </div>
+  <div id="top-scored-pages" class="tab-content">
+    <table id="top-scored-table" class="display" style="width: 100%">
+      <thead>
+        <tr>
+          <th>Rang</th>
+          <th>URL</th>
+          <th>PageRank</th>
+          <th>JuiceLink Score</th>
+          <th>Liens entrants</th>
+          <th>Liens sortants</th>
+        </tr>
+      </thead>
+      <tbody id="top-scored-tbody">
+        <!-- Sera rempli dynamiquement -->
+      </tbody>
+    </table>
+  </div>
+</div>
 
       <!-- Section pour l'analyse des liens inText -->
       <div class="card">
