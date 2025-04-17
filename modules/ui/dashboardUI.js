@@ -40,14 +40,14 @@ LinkJuice.DashboardUI = (function () {
 
         // Désactiver tous les contenus de tab du groupe
         const tabContents = document.querySelectorAll(".tab-content");
-        tabContents.forEach((c) => c.classList.remove("active"));
+        tabContents.forEach((c) => c.classList?.remove("active"));
 
         // Activer le tab cliqué
         this.classList.add("active");
 
         // Activer le contenu associé
         const targetId = this.dataset.target;
-        document.getElementById(targetId).classList.add("active");
+        document.getElementById(targetId)?.classList?.add("active");
       });
     });
 
@@ -74,7 +74,7 @@ LinkJuice.DashboardUI = (function () {
     // Gestion du clic sur les recommandations (pour affichage détaillé)
     document.querySelectorAll(".recommendation-card").forEach((card) => {
       card.addEventListener("click", function () {
-        this.classList.toggle("expanded");
+        this.classList?.toggle("expanded");
       });
     });
   }
