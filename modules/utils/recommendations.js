@@ -3,6 +3,38 @@
 
 LinkJuice.Recommendations = (function() {
     /**
+     * Types de recommandations avec leurs règles
+     * @private
+     */
+    const _recommendationTypes = {
+        orphaned_pages: {
+            title: 'Réduire les pages orphelines',
+            getDescription: (data) => `${data.orphanedPageCount} pages (${data.orphanedPercentage || '0%'}) sont présentes dans le sitemap mais inaccessibles via des liens internes.`,
+            getPriority: (data) => parseFloat(data.orphanedPercentage) > 20 ? 'high' : 'medium',
+            actions: [
+                'Créer des liens vers ces pages depuis des contenus thématiquement reliés',
+                'Ajouter ces pages dans la navigation principale ou secondaire',
+                'Créer des sections "Articles connexes" pour lier vers ces pages'
+            ],
+            condition: (data) => data.orphanedPageCount > 0
+        },
+        
+        anchor_quality: {
+            title: 'Améliorer la qualité des textes d\'ancrage',
+            getDescription: (data) => `${data.anchorQuality?.genericPercentage || '0'}% de vos liens utilisent des termes génériques comme "cliquez ici" ou "en savoir plus".`,
+            getPriority: (data) => parseFloat(data.anchorQuality?.genericPercentage || 0) > 30 ? 'high' : 'medium',
+            actions: [
+                'Utiliser des mots-clés descriptifs dans les textes d\'ancrage',
+                'Éviter les termes génériques comme "cliquez ici"',
+                'Rendre l\'ancre pertinente par rapport au contenu de destination'
+            ],
+            condition: (data) => parseFloat(data.anchorQuality?.genericPercentage || 0) > 30
+        },
+        
+        // Autres types de recommandations...
+    };
+    
+    /**
      * Génère des recommandations basées sur l'analyse
      * @param {Object} analysisResults - Résultats complets de l'analyse
      * @return {Array} Liste de recommandations

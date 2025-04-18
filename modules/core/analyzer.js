@@ -200,7 +200,6 @@ LinkJuice.Analyzer = (function () {
         orphanedPercentage: sitemapUrls.length > 0 ? 
     parseFloat((orphanedPages.length / sitemapUrls.length) * 100).toFixed(2) + "%" : 
     "0.00%",
-
         sitemapUrlCount: sitemapUrls.length,
         crawledUrlCount: crawledUrlsArray.length,
         linkContextData,
