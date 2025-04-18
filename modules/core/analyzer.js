@@ -6,6 +6,7 @@ LinkJuice.Analyzer = (function() {
     let sitemapUrls = [];
     let crawledUrls = new Set();
     let crawlQueue = [];
+    let linkStatusData = {};
     let orphanedPages = [];
     let analysisResults = null;
     let linkContextData = {};
@@ -25,6 +26,7 @@ LinkJuice.Analyzer = (function() {
             sitemapUrls = [];
             crawledUrls = new Set();
             crawlQueue = [];
+            linkStatusData = {};
             orphanedPages = [];
             linkContextData = {};
             linkImportanceData = {};
@@ -73,7 +75,7 @@ LinkJuice.Analyzer = (function() {
 
                     try {
                         const result = await LinkJuice.Crawler.crawlPage(
-                            urlToCrawl, linkContextData, linkImportanceData
+                            urlToCrawl, linkContextData, linkImportanceData, linkStatusData
                         );
                         
                         // Mettre à jour les informations CMS
@@ -142,7 +144,7 @@ LinkJuice.Analyzer = (function() {
 
             // Générer des détails supplémentaires sur les pages
             const pageDetails = LinkJuice.Crawler.generatePageDetails(
-                crawledUrlsArray, sitemapUrls, linkContextData
+                crawledUrlsArray, sitemapUrls, linkContextData, linkStatusData
             );
 
             // Générer le résumé des liens
@@ -206,6 +208,7 @@ LinkJuice.Analyzer = (function() {
                 contextAnalysis: contextAnalysis,
                 inTextAnalysis: inTextAnalysis,
                 pageDetails: pageDetails,
+                linkStatusData: linkStatusData,
                 performanceMetrics: performanceMetrics,
                 recommendations: recommendations,
                 detectedCMS: dominantCMS,
@@ -411,7 +414,10 @@ function getDashboardData() {
     // Obtenir des données supplémentaires spécifiques au dashboard
     const topImportantPages = getTopImportantPages(10);
     const lowImportancePages = getLowImportancePages(10);
-
+    console.log("Pages importantes générées:", {
+        top: topImportantPages.length,
+        low: lowImportancePages.length
+    });
     // Enrichir les métadonnées si elles ne sont pas déjà présentes
     const metadata = {
         date: analysisResults.params?.date || new Date().toISOString(),

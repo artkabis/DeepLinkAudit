@@ -295,6 +295,524 @@ LinkJuice.DashboardUI = (function () {
       document.getElementById("orphaned-alert").style.display = "none";
     }
   }
+  function displayHttpStatusInfo(data) {
+
+    const linkStatusData = data.linkStatusData || {};
+    console.log("Dashboard: linkStatusData disponible?", !!data.linkStatusData);
+    if (!data || !data.pageDetails) {
+      console.warn("Aucune donnée de statut HTTP disponible");
+      return;
+    }
+    // Vérifier si au moins une page a la propriété httpStatus
+  let hasHttpStatusData = false;
+  for (const url in data.pageDetails) {
+    if (data.pageDetails[url].httpStatus !== undefined) {
+      hasHttpStatusData = true;
+      break;
+    }
+  }
+  if (Object.keys(linkStatusData).length > 0) {
+    console.log("Dashboard: Utilisation directe de linkStatusData");
+    
+    // Pour tester, mettez à jour manuellement quelques pages avec des statuts HTTP
+    for (const url in data.pageDetails) {
+        if (linkStatusData[url]) {
+            data.pageDetails[url].httpStatus = linkStatusData[url].status;
+            data.pageDetails[url].redirected = linkStatusData[url].redirected;
+            data.pageDetails[url].redirectUrl = linkStatusData[url].redirectUrl;
+        }
+    }
+}
+  
+  if (!hasHttpStatusData) {
+    console.warn("Les données de statut HTTP ne sont pas présentes dans pageDetails");
+    
+    // Mettre à jour les compteurs pour montrer "Non vérifiés"
+    const totalPages = Object.keys(data.pageDetails).length;
+    document.getElementById('status-200-count').textContent = "0";
+    document.getElementById('status-3xx-count').textContent = "0";
+    document.getElementById('status-error-count').textContent = "0";
+    document.getElementById('status-unknown-count').textContent = totalPages.toLocaleString();
+    
+    document.getElementById('status-200-percent').textContent = "0%";
+    document.getElementById('status-3xx-percent').textContent = "0%";
+    document.getElementById('status-error-percent').textContent = "0%";
+    document.getElementById('status-unknown-percent').textContent = "100%";
+    
+    // Afficher un message pour l'utilisateur dans le conteneur du graphique
+    const chartContainer = document.getElementById('http-status-chart').parentNode;
+    if (chartContainer) {
+      chartContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+          <p style="margin-bottom: 10px; font-size: 16px;"><strong>Données de statut HTTP non disponibles</strong></p>
+          <p>Veuillez lancer une nouvelle analyse avec la version mise à jour du crawler pour collecter les statuts HTTP.</p>
+        </div>`;
+    }
+    
+    // Vider ou mettre à jour les tableaux
+    ['http-status-tbody', 'broken-links-tbody', 'redirects-tbody'].forEach(id => {
+      const tbody = document.getElementById(id);
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Aucune donnée disponible. Veuillez lancer une nouvelle analyse.</td></tr>';
+      }
+    });
+    
+    return;
+  }
+    
+    // Compiler les statistiques de statut HTTP
+    const statsByCode = {};
+    const statusGroups = {
+      '2xx': 0,  // 200-299: Succès
+      '3xx': 0,  // 300-399: Redirection
+      '4xx': 0,  // 400-499: Erreur client
+      '5xx': 0,  // 500-599: Erreur serveur
+      '0': 0,    // 0: Erreur de connexion ou non vérifié
+      'unknown': 0  // Status inconnu
+    };
+    
+    let totalChecked = 0;
+    const brokenLinks = [];
+    const redirects = [];
+    
+    // Analyser chaque page pour son statut HTTP
+    for (const url in data.pageDetails) {
+      const page = data.pageDetails[url];
+      const status = page.httpStatus;
+      
+      // Ignorer les entrées sans statut HTTP
+      if (!status || status === 'unknown') {
+        statusGroups.unknown++;
+        continue;
+      }
+      
+      totalChecked++;
+      
+      // Grouper par code HTTP spécifique
+      if (!statsByCode[status]) {
+        statsByCode[status] = { count: 0, urls: [] };
+      }
+      statsByCode[status].count++;
+      statsByCode[status].urls.push(url);
+      
+      // Grouper par classe de statut
+      if (status >= 200 && status < 300) {
+        statusGroups['2xx']++;
+      } else if (status >= 300 && status < 400) {
+        statusGroups['3xx']++;
+        // Collecter les infos de redirection
+        //if (page.redirected && page.redirectUrl) {
+            console.log('+++++++++++++++++++ redirection detected !',page.redirected, page.redirectUrl)
+          redirects.push({
+            fromUrl: url,
+            toUrl: page.redirectUrl,
+            type: `${status} ${getStatusDescription(status)}`,
+            inboundLinks: page.inboundLinks || 0
+          });
+        //}
+      } else if (status >= 400 && status < 500) {
+        statusGroups['4xx']++;
+        // Collecter les liens cassés
+        if (page.inboundLinks > 0) {
+          // Trouver les pages qui pointent vers cette URL cassée
+          for (const sourceUrl in data.linkContextData) {
+            const contexts = data.linkContextData[sourceUrl];
+            contexts.forEach(context => {
+              if (context.targetUrl === url || context.href === url) {
+                brokenLinks.push({
+                  source: context.fromUrl,
+                  target: url,
+                  status: status,
+                  context: context.context
+                });
+              }
+            });
+          }
+        }
+      } else if (status >= 500) {
+        statusGroups['5xx']++;
+        // Aussi collecter comme liens cassés
+        if (page.inboundLinks > 0) {
+          for (const sourceUrl in data.linkContextData) {
+            const contexts = data.linkContextData[sourceUrl];
+            contexts.forEach(context => {
+              if (context.targetUrl === url || context.href === url) {
+                brokenLinks.push({
+                  source: context.fromUrl,
+                  target: url,
+                  status: status,
+                  context: context.context
+                });
+              }
+            });
+          }
+        }
+      } else if (status === 0) {
+        statusGroups['0']++;
+        // Aussi collecter comme liens cassés
+        if (page.inboundLinks > 0) {
+          for (const sourceUrl in data.linkContextData) {
+            const contexts = data.linkContextData[sourceUrl];
+            contexts.forEach(context => {
+              if (context.targetUrl === url || context.href === url) {
+                brokenLinks.push({
+                  source: context.fromUrl,
+                  target: url,
+                  status: 0,
+                  context: context.context
+                });
+              }
+            });
+          }
+        }
+      }
+    }
+    
+    // Mise à jour des statistiques dans l'interface
+    const total = totalChecked + statusGroups.unknown;
+    
+    // Mettre à jour les compteurs
+    document.getElementById('status-200-count').textContent = statusGroups['2xx'].toLocaleString();
+    document.getElementById('status-3xx-count').textContent = statusGroups['3xx'].toLocaleString();
+    document.getElementById('status-error-count').textContent = (statusGroups['4xx'] + statusGroups['5xx'] + statusGroups['0']).toLocaleString();
+    document.getElementById('status-unknown-count').textContent = statusGroups.unknown.toLocaleString();
+    
+    // Mettre à jour les pourcentages
+    if (total > 0) {
+      document.getElementById('status-200-percent').textContent = `${Math.round(statusGroups['2xx'] / total * 100)}%`;
+      document.getElementById('status-3xx-percent').textContent = `${Math.round(statusGroups['3xx'] / total * 100)}%`;
+      document.getElementById('status-error-percent').textContent = `${Math.round((statusGroups['4xx'] + statusGroups['5xx'] + statusGroups['0']) / total * 100)}%`;
+      document.getElementById('status-unknown-percent').textContent = `${Math.round(statusGroups.unknown / total * 100)}%`;
+    }
+    
+    // Créer le graphique circulaire des statuts HTTP
+    createHttpStatusChart('http-status-chart', statusGroups);
+    
+    // Remplir la table des statuts HTTP détaillés
+    populateHttpStatusTable('http-status-table', statsByCode);
+    
+    // Gérer l'alerte de liens cassés
+    const brokenLinksCount = statusGroups['4xx'] + statusGroups['5xx'] + statusGroups['0'];
+    if (brokenLinksCount > 0) {
+      document.getElementById('broken-links-alert').style.display = 'flex';
+      document.getElementById('broken-links-summary').textContent = 
+        `${brokenLinksCount} liens cassés détectés. Cela peut nuire à l'expérience utilisateur et au référencement.`;
+    } else {
+      document.getElementById('broken-links-alert').style.display = 'none';
+    }
+    
+    // Remplir la table des liens cassés
+    populateBrokenLinksTable('broken-links-table', brokenLinks);
+    
+    // Remplir la table des redirections
+    populateRedirectsTable('redirects-table', redirects);
+  }
+  // Fonction pour créer le graphique des statuts HTTP
+function createHttpStatusChart(canvasId, statusGroups) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    
+    // Nettoyer le graphique existant s'il existe
+    if (globalContext.httpStatusChart) {
+      globalContext.httpStatusChart.destroy();
+    }
+    
+    const data = [
+      statusGroups['2xx'],
+      statusGroups['3xx'],
+      statusGroups['4xx'] + statusGroups['5xx'],
+      statusGroups['0'],
+      statusGroups['unknown']
+    ];
+    
+    const labels = [
+      'OK (200-299)',
+      'Redirections (300-399)',
+      'Erreurs (400-599)',
+      'Erreurs de connexion',
+      'Non vérifiés'
+    ];
+    
+    globalContext.httpStatusChart = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: [
+            'rgba(52, 168, 83, 0.7)',  // 2xx - vert
+            'rgba(251, 188, 5, 0.7)',  // 3xx - jaune
+            'rgba(234, 67, 53, 0.7)',  // 4xx/5xx - rouge
+            'rgba(128, 128, 128, 0.7)', // 0 - gris
+            'rgba(200, 200, 200, 0.5)'  // unknown - gris clair
+          ],
+          borderColor: [
+            'rgba(52, 168, 83, 1)',
+            'rgba(251, 188, 5, 1)',
+            'rgba(234, 67, 53, 1)',
+            'rgba(128, 128, 128, 1)',
+            'rgba(200, 200, 200, 1)'
+          ],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right'
+          },
+          tooltip: {
+            callbacks: {
+              label: function (context) {
+                const label = context.label || '';
+                const value = context.raw || 0;
+                const total = data.reduce((a, b) => a + b, 0);
+                const percentage = Math.round((value / total) * 100);
+                return `${label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+  
+  // Fonction pour remplir la table des statuts HTTP détaillés
+function populateHttpStatusTable(tableId, statsByCode) {
+    const tbody = document.getElementById(`${tableId}-tbody`);
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    const statusCodes = Object.keys(statsByCode).sort((a, b) => a - b);
+    
+    for (const code of statusCodes) {
+      const stats = statsByCode[code];
+      const row = document.createElement('tr');
+      
+      // Cellule de code HTTP
+      const codeCell = document.createElement('td');
+      const codeBadge = document.createElement('span');
+      
+      let badgeClass = 'status-0';
+      if (code >= 200 && code < 300) badgeClass = 'status-200';
+      else if (code >= 300 && code < 400) badgeClass = 'status-300';
+      else if (code >= 400 && code < 500) badgeClass = 'status-400';
+      else if (code >= 500) badgeClass = 'status-500';
+      
+      codeBadge.className = `http-status-badge ${badgeClass}`;
+      codeBadge.textContent = code;
+      codeCell.appendChild(codeBadge);
+      
+      // Cellule de description
+      const descCell = document.createElement('td');
+      descCell.textContent = getStatusDescription(code);
+      
+      // Cellule de comptage
+      const countCell = document.createElement('td');
+      countCell.textContent = stats.count.toLocaleString();
+      
+      // Cellule de pourcentage
+      const percentCell = document.createElement('td');
+      const total = Object.values(statsByCode).reduce((sum, s) => sum + s.count, 0);
+      const percent = total > 0 ? Math.round((stats.count / total) * 100) : 0;
+      percentCell.textContent = `${percent}%`;
+      
+      row.appendChild(codeCell);
+      row.appendChild(descCell);
+      row.appendChild(countCell);
+      row.appendChild(percentCell);
+      
+      tbody.appendChild(row);
+    }
+    
+    // Initialiser DataTable
+    try {
+      if (typeof initDataTable === 'function') {
+        initDataTable(tableId);
+      }
+    } catch (e) {
+      console.error("Erreur lors de l'initialisation de DataTable:", e);
+    }
+  }
+  
+  // Fonction pour remplir la table des liens cassés
+  function populateBrokenLinksTable(tableId, brokenLinks) {
+    const tbody = document.getElementById(`${tableId}-tbody`);
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (brokenLinks.length === 0) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 4;
+      cell.style.textAlign = 'center';
+      cell.textContent = 'Aucun lien cassé détecté';
+      row.appendChild(cell);
+      tbody.appendChild(row);
+      return;
+    }
+    
+    for (const link of brokenLinks) {
+      const row = document.createElement('tr');
+      
+      // Cellule de page source
+      const sourceCell = document.createElement('td');
+      const sourceLink = document.createElement('a');
+      sourceLink.href = link.source;
+      sourceLink.target = '_blank';
+      sourceLink.textContent = link.source;
+      sourceCell.appendChild(sourceLink);
+      
+      // Cellule de lien cassé
+      const targetCell = document.createElement('td');
+      const targetLink = document.createElement('a');
+      targetLink.href = link.target;
+      targetLink.target = '_blank';
+      targetLink.textContent = link.target;
+      targetLink.style.color = '#d93025';
+      targetCell.appendChild(targetLink);
+      
+      // Cellule de code HTTP
+      const statusCell = document.createElement('td');
+      const statusBadge = document.createElement('span');
+      
+      let badgeClass = 'status-0';
+      if (link.status >= 400 && link.status < 500) badgeClass = 'status-400';
+      else if (link.status >= 500) badgeClass = 'status-500';
+      
+      statusBadge.className = `http-status-badge ${badgeClass}`;
+      statusBadge.textContent = link.status || 'Erreur';
+      statusCell.appendChild(statusBadge);
+      
+      // Cellule de contexte
+      const contextCell = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.className = `badge ${link.context}`;
+      badge.textContent = link.context || 'Inconnu';
+      contextCell.appendChild(badge);
+      
+      row.appendChild(sourceCell);
+      row.appendChild(targetCell);
+      row.appendChild(statusCell);
+      row.appendChild(contextCell);
+      
+      tbody.appendChild(row);
+    }
+    
+    // Initialiser DataTable
+    try {
+      if (typeof initDataTable === 'function') {
+        initDataTable(tableId);
+      }
+    } catch (e) {
+      console.error("Erreur lors de l'initialisation de DataTable:", e);
+    }
+  }
+  
+  // Fonction pour remplir la table des redirections
+  function populateRedirectsTable(tableId, redirects) {
+    const tbody = document.getElementById(`${tableId}-tbody`);
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (redirects.length === 0) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 4;
+      cell.style.textAlign = 'center';
+      cell.textContent = 'Aucune redirection détectée';
+      row.appendChild(cell);
+      tbody.appendChild(row);
+      return;
+    }
+    
+    for (const redirect of redirects) {
+      const row = document.createElement('tr');
+      
+      // Cellule d'URL d'origine
+      const fromCell = document.createElement('td');
+      const fromLink = document.createElement('a');
+      fromLink.href = redirect.fromUrl;
+      fromLink.target = '_blank';
+      fromLink.textContent = redirect.fromUrl;
+      fromCell.appendChild(fromLink);
+      
+      // Cellule d'URL de destination
+      const toCell = document.createElement('td');
+      const toLink = document.createElement('a');
+      toLink.href = redirect.toUrl;
+      toLink.target = '_blank';
+      toLink.textContent = redirect.toUrl;
+      toCell.appendChild(toLink);
+      
+      // Cellule de type de redirection
+      const typeCell = document.createElement('td');
+      const typeBadge = document.createElement('span');
+      typeBadge.className = 'http-status-badge status-300';
+      typeBadge.textContent = redirect.type;
+      typeCell.appendChild(typeBadge);
+      
+      // Cellule de nombre de liens entrants
+      const linksCell = document.createElement('td');
+      linksCell.textContent = redirect.inboundLinks.toLocaleString();
+      
+      row.appendChild(fromCell);
+      row.appendChild(toCell);
+      row.appendChild(typeCell);
+      row.appendChild(linksCell);
+      
+      tbody.appendChild(row);
+    }
+    
+    // Initialiser DataTable
+    try {
+      if (typeof initDataTable === 'function') {
+        initDataTable(tableId);
+      }
+    } catch (e) {
+      console.error("Erreur lors de l'initialisation de DataTable:", e);
+    }
+  }
+  
+  // Fonction utilitaire pour obtenir la description d'un code HTTP
+  function getStatusDescription(code) {
+    const descriptions = {
+      // 2xx - Succès
+      200: 'OK',
+      201: 'Créé',
+      204: 'Pas de contenu',
+      
+      // 3xx - Redirection
+      301: 'Redirection permanente',
+      302: 'Redirection temporaire',
+      304: 'Non modifié',
+      307: 'Redirection temporaire',
+      308: 'Redirection permanente',
+      
+      // 4xx - Erreur client
+      400: 'Requête incorrecte',
+      401: 'Non autorisé',
+      403: 'Interdit',
+      404: 'Non trouvé',
+      410: 'Disparu',
+      
+      // 5xx - Erreur serveur
+      500: 'Erreur interne du serveur',
+      502: 'Mauvaise passerelle',
+      503: 'Service indisponible',
+      504: 'Délai de passerelle dépassé',
+      
+      // Spécial
+      0: 'Erreur de connexion'
+    };
+    
+    return descriptions[code] || `Code HTTP ${code}`;
+  }
+  
   /**
    * Affiche les informations sur le CMS détecté
    * @param {Object} data - Données d'analyse
@@ -890,7 +1408,24 @@ LinkJuice.DashboardUI = (function () {
           "orphaned-table",
           data.orphanedPages
         );
-      }
+      } else {
+        console.warn("renderTables: Données de pages orphelines manquantes");
+        // Vérifier d'autres sources possibles pour les pages orphelines
+        if (data.orphanedPageCount > 0) {
+            console.log("renderTables: Détection de pages orphelines via orphanedPageCount");
+            // Il y a des pages orphelines mais les données détaillées sont manquantes
+            const placeholder = document.getElementById("orphaned-tbody");
+            if (placeholder) {
+                placeholder.innerHTML = `
+                    <tr>
+                        <td colspan="2" style="text-align: center;">
+                            ${data.orphanedPageCount} pages orphelines détectées, mais les détails ne sont pas disponibles
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+    }
 
       // Tableau des contextes de liens
       if (data.linkContextData) {
@@ -947,6 +1482,21 @@ LinkJuice.DashboardUI = (function () {
 
       // Afficher les scores PageRank et JuiceLink
       displayScoreVisualisations(data);
+
+      // Afficher les informations de statut HTTP
+        displayHttpStatusInfo(data);
+
+      // CORRECTION: Générer et attacher les données d'importance si elles n'existent pas déjà
+      if (!data.importanceAnalysis && data.linkContextData) {
+        // Utiliser l'API d'Analyzer pour générer les pages importantes
+        data.importanceAnalysis = {
+            topImportantPages: LinkJuice.Analyzer.getTopImportantPages(10),
+            lowImportancePages: LinkJuice.Analyzer.getLowImportancePages(10)
+        };
+        
+        console.log("Données d'importance générées:", data.importanceAnalysis);
+    }
+
 
       // Rendre les graphiques
       renderCharts(data);
