@@ -264,6 +264,206 @@ LinkJuice.Crawler = (function() {
         
         return results;
     }
+
+    // Ajouter cette fonction utilitaire dans crawler.js
+function decodeHtmlEntities(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    // Solution simple qui fonctionne dans tous les navigateurs
+    let decoded = text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ');
+    
+    // Si certaines entités posent encore problème, les corriger manuellement
+    const problematicEntities = {
+        // Lettres minuscules accentuées
+        '&agrave;': 'à',
+        '&aacute;': 'á',
+        '&acirc;': 'â',
+        '&atilde;': 'ã',
+        '&auml;': 'ä',
+        '&aring;': 'å',
+        '&aelig;': 'æ',
+        '&ccedil;': 'ç',
+        '&egrave;': 'è',
+        '&eacute;': 'é',
+        '&ecirc;': 'ê',
+        '&euml;': 'ë',
+        '&igrave;': 'ì',
+        '&iacute;': 'í',
+        '&icirc;': 'î',
+        '&iuml;': 'ï',
+        '&eth;': 'ð',
+        '&ntilde;': 'ñ',
+        '&ograve;': 'ò',
+        '&oacute;': 'ó',
+        '&ocirc;': 'ô',
+        '&otilde;': 'õ',
+        '&ouml;': 'ö',
+        '&oslash;': 'ø',
+        '&ugrave;': 'ù',
+        '&uacute;': 'ú',
+        '&ucirc;': 'û',
+        '&uuml;': 'ü',
+        '&yacute;': 'ý',
+        '&thorn;': 'þ',
+        '&yuml;': 'ÿ',
+        '&szlig;': 'ß',
+        
+        // Lettres majuscules accentuées
+        '&Agrave;': 'À',
+        '&Aacute;': 'Á',
+        '&Acirc;': 'Â',
+        '&Atilde;': 'Ã',
+        '&Auml;': 'Ä',
+        '&Aring;': 'Å',
+        '&AElig;': 'Æ',
+        '&Ccedil;': 'Ç',
+        '&Egrave;': 'È',
+        '&Eacute;': 'É',
+        '&Ecirc;': 'Ê',
+        '&Euml;': 'Ë',
+        '&Igrave;': 'Ì',
+        '&Iacute;': 'Í',
+        '&Icirc;': 'Î',
+        '&Iuml;': 'Ï',
+        '&ETH;': 'Ð',
+        '&Ntilde;': 'Ñ',
+        '&Ograve;': 'Ò',
+        '&Oacute;': 'Ó',
+        '&Ocirc;': 'Ô',
+        '&Otilde;': 'Õ',
+        '&Ouml;': 'Ö',
+        '&Oslash;': 'Ø',
+        '&Ugrave;': 'Ù',
+        '&Uacute;': 'Ú',
+        '&Ucirc;': 'Û',
+        '&Uuml;': 'Ü',
+        '&Yacute;': 'Ý',
+        '&THORN;': 'Þ',
+        
+        // Symboles et ponctuations
+        '&quot;': '"',
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&OElig;': 'Œ',
+        '&oelig;': 'œ',
+        '&Scaron;': 'Š',
+        '&scaron;': 'š',
+        '&Yuml;': 'Ÿ',
+        '&circ;': 'ˆ',
+        '&tilde;': '˜',
+        '&ensp;': ' ',
+        '&emsp;': ' ',
+        '&thinsp;': ' ',
+        '&zwnj;': '‌',
+        '&zwj;': '‍',
+        '&ndash;': '–',
+        '&mdash;': '—',
+        '&lsquo;': "'",
+        '&rsquo;': "'",
+        '&sbquo;': '‚',
+        '&ldquo;': '"',
+        '&rdquo;': '"',
+        '&bdquo;': '„',
+        '&dagger;': '†',
+        '&Dagger;': '‡',
+        '&permil;': '‰',
+        '&lsaquo;': '‹',
+        '&rsaquo;': '›',
+        '&euro;': '€',
+        '&fnof;': 'ƒ',
+        '&trade;': '™',
+        '&reg;': '®',
+        '&copy;': '©',
+        '&nbsp;': ' ',
+        '&iexcl;': '¡',
+        '&cent;': '¢',
+        '&pound;': '£',
+        '&curren;': '¤',
+        '&yen;': '¥',
+        '&brvbar;': '¦',
+        '&sect;': '§',
+        '&uml;': '¨',
+        '&ordf;': 'ª',
+        '&laquo;': '«',
+        '&not;': '¬',
+        '&shy;': '­',
+        '&macr;': '¯',
+        '&deg;': '°',
+        '&plusmn;': '±',
+        '&sup2;': '²',
+        '&sup3;': '³',
+        '&acute;': '´',
+        '&micro;': 'µ',
+        '&para;': '¶',
+        '&middot;': '·',
+        '&cedil;': '¸',
+        '&sup1;': '¹',
+        '&ordm;': 'º',
+        '&raquo;': '»',
+        '&frac14;': '¼',
+        '&frac12;': '½',
+        '&frac34;': '¾',
+        '&iquest;': '¿',
+        '&times;': '×',
+        '&divide;': '÷',
+        
+        // Combinaisons problématiques trouvées fréquemment
+        'priv&eacute;e': 'privée',
+        'l&eacute;gales': 'légales',
+        'f&acced;ade': 'façade',
+        'acc&egrave;s': 'accès',
+        'g&eacute;n&eacute;ral': 'général',
+        'pr&eacute;sentation': 'présentation',
+        'r&eacute;f&eacute;rencement': 'référencement',
+        'cat&eacute;gorie': 'catégorie',
+        'sp&eacute;cial': 'spécial',
+        'qualit&eacute;': 'qualité',
+        'actualit&eacute;s': 'actualités',
+        'activit&eacute;': 'activité',
+        'cr&eacute;ation': 'création',
+        'pr&eacute;c&eacute;dent': 'précédent',
+        'd&eacute;tail': 'détail',
+        'mod&egrave;le': 'modèle',
+        'soci&eacute;t&eacute;': 'société',
+        't&eacute;l&eacute;phone': 'téléphone',
+        't&eacute;l&eacute;charger': 'télécharger',
+        '&eacute;v&eacute;nement': 'événement',
+        'num&eacute;ro': 'numéro',
+        'premi&egrave;re': 'première',
+        'derni&egrave;re': 'dernière',
+        'compl&eacute;mentaire': 'complémentaire',
+        's&eacute;curit&eacute;': 'sécurité',
+        'communaut&eacute;': 'communauté',
+        'r&eacute;gulier': 'régulier',
+        'mat&eacute;riel': 'matériel'
+    };
+    
+    // Ensuite, traiter manuellement les entités qui pourraient persister
+    // en commençant par les combinaisons de mots entiers
+    Object.keys(problematicEntities).forEach(entity => {
+        const regex = new RegExp(entity, 'g');
+        decoded = decoded.replace(regex, problematicEntities[entity]);
+    });
+
+   // Gestion des entités numériques (comme &#233;)
+   decoded = decoded.replace(/&#(\d+);/g, function(match, dec) {
+    return String.fromCharCode(dec);
+});
+
+// Gestion des entités hexadécimales (comme &#x00E9;)
+decoded = decoded.replace(/&#x([0-9A-F]+);/gi, function(match, hex) {
+    return String.fromCharCode(parseInt(hex, 16));
+});
+
+return decoded;
+}
     
     /**
      * Extrait les liens d'une page HTML
@@ -279,7 +479,9 @@ LinkJuice.Crawler = (function() {
         
         while ((match = hrefRegex.exec(html)) !== null && count < CONFIG.LINK_LIMIT) {
             const href = match[1];
-            const linkText = match[2].replace(/<[^>]*>/g, '').trim();
+            let linkText = match[2].replace(/<[^>]*>/g, '').trim();
+            // Décoder les entités HTML ici
+            linkText = decodeHtmlEntities(linkText);
             const fullLinkHTML = match[0];
             
             const normalizedUrl = normalizeUrl(href, baseUrl);

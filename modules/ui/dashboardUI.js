@@ -285,8 +285,9 @@ LinkJuice.DashboardUI = (function () {
     document.getElementById("orphaned-count").textContent = (
       data.orphanedPageCount || 0
     ).toLocaleString();
-    document.getElementById("orphaned-percentage").textContent =
-      data.statistics?.orphanedPercentage || "0.00%";
+    // Utiliser directement la valeur orphanedPercentage calculée
+    document.getElementById("orphaned-percentage").textContent = 
+      data.orphanedPercentage ? data.orphanedPercentage + "%" : "0.00%";
 
     // Afficher l'alerte si des pages orphelines existent
     if (data.orphanedPageCount > 0) {
@@ -1260,23 +1261,22 @@ function populateHttpStatusTable(tableId, statsByCode) {
       anchorData.averageLength;
 
     // Remplir les termes génériques communs
+    // Remplir les termes génériques communs
     const genericTermsList = document.getElementById("generic-terms-list");
     if (genericTermsList) {
-      genericTermsList.innerHTML = "";
+        genericTermsList.innerHTML = "";
 
-      if (
-        anchorData.commonGenericTerms &&
-        anchorData.commonGenericTerms.length > 0
-      ) {
-        anchorData.commonGenericTerms.forEach((item) => {
-          const li = document.createElement("li");
-          li.textContent = `"${item.term}" (${item.count} occurrences)`;
-          genericTermsList.appendChild(li);
-        });
-      } else {
-        genericTermsList.innerHTML =
-          "<li>Aucun terme générique fréquent trouvé</li>";
-      }
+        if (anchorData.commonGenericTerms && anchorData.commonGenericTerms.length > 0) {
+            anchorData.commonGenericTerms.forEach((item) => {
+                const li = document.createElement("li");
+                // Utiliser la fonction de décodage
+                const decodedTerm = LinkJuice.TextUtils.decodeHtmlEntities(item.term);
+                li.textContent = `"${decodedTerm}" (${item.count} occurrences)`;
+                genericTermsList.appendChild(li);
+            });
+        } else {
+            genericTermsList.innerHTML = "<li>Aucun terme générique fréquent trouvé</li>";
+        }
     }
 
     // Remplir les mots-clés communs
