@@ -275,6 +275,8 @@ LinkJuice.DashboardUI = (function () {
    * @param {Object} data - Données d'analyse
    */
   function fillStatistics(data) {
+
+    console.log('!!!!!!!!!!!!!!!!!!! fillStatistics ::::::::::::::::::::: ',fillStatistics);
     // Statistiques
     document.getElementById("sitemap-count").textContent = (
       data.sitemapUrlCount || 0
